@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jamboxx Adaptive Music Controller</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+:root {
+  --bg:#020508; --panel:rgba(4,12,18,0.97); --border:#0d2535;
+  --grn:#00ffc3; --yel:#ffe600; --cyn:#00cfff; --mag:#ff2d78;
+  --txt:#8abcb0; --dim:#1a3a30; --sw:310px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);overflow:hidden;font-family:'Share Tech Mono',monospace;color:var(--txt);width:100vw;height:100vh;user-select:none;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);pointer-events:none;z-index:9000;}
+
+/* HEADER */
+#hdr{position:fixed;top:0;left:0;right:0;height:56px;background:rgba(2,5,8,.99);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;z-index:500;gap:14px;flex-wrap:nowrap;overflow:hidden;}
+#ptitle{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:3px;color:var(--grn);text-shadow:0 0 16px rgba(0,255,195,.4);white-space:nowrap;}
+#ptitle em{color:var(--yel);font-style:normal;}
+.hsep{width:1px;height:28px;background:var(--border);flex-shrink:0;}
+.hbtn{padding:6px 14px;background:transparent;border:1px solid var(--grn);color:var(--grn);border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;transition:all .15s;white-space:nowrap;}
+.hbtn:hover{background:var(--grn);color:#000;box-shadow:0 0 12px var(--grn);}
+.hbtn.warn{border-color:var(--mag);color:var(--mag);}
+.hbtn.warn:hover{background:var(--mag);color:#000;}
+.hbtn.on{background:var(--grn);color:#000;}
+.hstat{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:1px;opacity:.6;white-space:nowrap;}
+.dot{width:7px;height:7px;border-radius:50%;background:#222;flex-shrink:0;transition:all .3s;}
+.dot.live{background:var(--grn);box-shadow:0 0 8px var(--grn);animation:bl 2s infinite;}
+.dot.midion{background:var(--cyn);box-shadow:0 0 8px var(--cyn);}
+.dot.miditx{background:var(--yel);box-shadow:0 0 8px var(--yel);}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.4}}
+#errbox{font-size:9px;color:var(--mag);letter-spacing:1px;display:none;}
+/* MIDI Monitor — upper-right of canvas area */
+#midi-mon{
+  position:fixed;
+  top:64px;
+  right:10px;
+  width:240px;
+  background:rgba(2,8,14,.97);
+  border:1px solid var(--border);
+  border-radius:3px;
+  z-index:700;
+  font-family:'Share Tech Mono',monospace;
+}
+#mm-hdr{display:flex;justify-content:space-between;align-items:center;padding:5px 9px;border-bottom:1px solid var(--border);}
+#mm-hdr-title{font-family:'Orbitron',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--grn);text-shadow:0 0 10px rgba(0,255,195,.4);}
+#mm-hdr-btns{display:flex;gap:4px;align-items:center;}
+.mm-btn{
+  padding:2px 7px;background:transparent;border:1px solid var(--border);
+  color:var(--dim);border-radius:2px;cursor:pointer;
+  font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;
+  text-transform:uppercase;transition:all .12s;
+}
+.mm-btn:hover{border-color:var(--cyn);color:var(--cyn);}
+.mm-btn.copied{border-color:var(--grn);color:var(--grn);}
+#mm-act{width:6px;height:6px;border-radius:50%;background:#222;transition:background .08s,box-shadow .08s;flex-shrink:0;}
+#mm-act.flash{background:var(--cyn);box-shadow:0 0 8px var(--cyn);}
+#mm-log{
+  height:140px;
+  overflow-y:auto;
+  padding:4px 8px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border) transparent;
+  /* Allow text selection for copying */
+  user-select:text;
+  -webkit-user-select:text;
+  cursor:text;
+}
+.mml{display:flex;gap:5px;font-size:9px;padding:2px 0;border-bottom:1px solid rgba(13,37,53,.4);user-select:text;}
+.mml-t{color:var(--dim);flex-shrink:0;width:54px;}
+.mml-k{width:22px;flex-shrink:0;}
+.mml-k.on{color:var(--grn);}.mml-k.off{color:var(--mag);}.mml-k.sys{color:var(--yel);}
+.mml-n{color:var(--cyn);flex:1;}
+.mml-v{color:var(--txt);opacity:.6;}
+#mm-foot{display:flex;justify-content:space-between;align-items:center;padding:4px 9px;border-top:1px solid var(--border);font-size:8px;color:var(--dim);}
+#mm-cnt{color:var(--grn);}
+#mm-port{color:var(--cyn);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* SIDEBAR */
+#sb{position:fixed;top:56px;left:0;width:var(--sw);height:calc(100vh - 56px);background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;z-index:400;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.ss{border-bottom:1px solid var(--border);}
+.sh{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;cursor:pointer;background:rgba(0,0,0,0);}
+.sh:hover{background:rgba(0,255,195,.06);}
+.st{font-family:'Orbitron',sans-serif;font-size:12px;letter-spacing:2px;color:var(--yel);font-weight:700;}
+.sar{font-size:13px;color:var(--dim);line-height:1;transition:color .15s;}
+.sbody{padding:0 16px 14px;overflow:hidden;max-height:2000px;transition:max-height .35s ease,padding .35s;}
+.sbody.closed{max-height:0;padding-bottom:0;}
+.fl{font-size:11px;letter-spacing:1px;color:var(--grn);text-transform:uppercase;margin:10px 0 5px;opacity:.85;}
+select{width:100%;background:#040d14;color:var(--grn);border:1px solid var(--border);border-radius:2px;padding:7px 9px;font-family:'Share Tech Mono',monospace;font-size:12px;cursor:pointer;}
+select:focus{outline:none;border-color:var(--grn);}
+input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--grn);box-shadow:0 0 6px var(--grn);}
+.rrow{display:grid;grid-template-columns:80px 1fr 48px;align-items:center;gap:7px;margin-top:9px;}
+.rrow .fl{margin:0;}
+.rv{font-size:11px;color:var(--yel);text-align:right;}
+.trow{display:flex;align-items:center;gap:10px;margin-top:11px;}
+.tl{font-size:11px;flex:1;}
+.tg{position:relative;width:34px;height:17px;flex-shrink:0;}
+.tg input{opacity:0;width:0;height:0;}
+.tgtr{position:absolute;inset:0;background:#0d1c18;border:1px solid var(--border);border-radius:17px;cursor:pointer;transition:.2s;}
+.tgtr::before{content:'';position:absolute;width:11px;height:11px;border-radius:50%;background:#2a4030;bottom:2px;left:2px;transition:.2s;}
+input:checked+.tgtr{background:rgba(0,255,195,.12);border-color:var(--grn);}
+input:checked+.tgtr::before{background:var(--grn);transform:translateX(17px);box-shadow:0 0 6px var(--grn);}
+.sbtn{display:inline-block;margin-top:9px;margin-right:5px;padding:6px 14px;background:transparent;border:1px solid var(--border);color:var(--grn);border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;transition:all .15s;}
+.sbtn:hover{border-color:var(--grn);box-shadow:0 0 8px rgba(0,255,195,.2);}
+.mbadge{display:inline-block;margin-top:8px;padding:5px 9px;font-size:11px;letter-spacing:1px;border:1px solid var(--border);border-radius:2px;color:var(--dim);}
+.mbadge.ok{border-color:var(--cyn);color:var(--cyn);}
+.mbadge.err{border-color:var(--mag);color:var(--mag);}
+.cambox{width:100%;height:90px;background:#000;border:1px solid var(--border);border-radius:2px;overflow:hidden;margin-bottom:8px;position:relative;}
+#webcam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:.7;display:block;}
+#camst{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:2px;color:var(--dim);}
+#scinfo{margin-top:10px;background:#030c14;border:1px solid var(--border);border-radius:2px;padding:9px;}
+.sir{display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;}
+.sil{color:var(--grn);}
+.siv{color:var(--yel);}
+.sid{color:var(--cyn);font-size:11px;margin-top:5px;letter-spacing:1px;line-height:1.7;}
+.nstrip{display:flex;flex-wrap:wrap;gap:4px;margin-top:9px;}
+.nchip{padding:4px 8px;font-size:11px;letter-spacing:1px;border:1px solid var(--border);border-radius:2px;color:var(--dim);transition:all .2s;}
+.nchip.hit{border-color:var(--cyn);color:var(--cyn);box-shadow:0 0 8px var(--cyn);background:rgba(0,207,255,.1);}
+.upzone{margin-top:10px;border:1px dashed var(--border);border-radius:2px;padding:11px;text-align:center;cursor:pointer;font-size:11px;color:var(--dim);letter-spacing:1px;transition:all .2s;}
+.upzone:hover{border-color:var(--grn);color:var(--grn);}
+.upzone.loaded{border-color:var(--cyn);color:var(--cyn);}
+#canvas-wrap{position:fixed;top:56px;left:var(--sw);right:0;bottom:0;}
+/* Webcam overlay — top-left of the canvas area */
+#cam-overlay{
+  position:fixed;
+  top:64px;
+  left:calc(var(--sw) + 10px);
+  width:160px;
+  height:110px;
+  z-index:600;
+  border:1px solid var(--border);
+  border-radius:3px;
+  overflow:hidden;
+  background:#000;
+}
+#cam-overlay video{
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  opacity:.8;
+  display:block;
+}
+#cam-overlay-label{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(2,8,14,.7);
+  font-size:8px;letter-spacing:2px;
+  color:var(--dim);padding:2px 5px;
+  text-align:center;
+}
+#cam-overlay-dot{
+  position:absolute;top:5px;right:5px;
+  width:6px;height:6px;border-radius:50%;
+  background:#222;
+}
+#cam-overlay-dot.live{background:var(--grn);box-shadow:0 0 6px var(--grn);}
+/* Preset panel */
+#preset-panel{
+  /* now lives inside sidebar as a collapsible section — no fixed positioning */
+}
+#pp-hdr{padding:5px 9px;border-bottom:1px solid var(--border);font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:var(--yel);}
+#pp-body{padding:8px 9px;}
+#pp-name:focus{outline:none;border-color:var(--grn);}
+.pp-btn{
+  display:block;width:100%;margin-bottom:5px;
+  padding:5px 0;
+  background:transparent;border:1px solid var(--border);color:var(--grn);
+  border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:1px;text-transform:uppercase;text-align:center;
+  transition:all .15s;
+}
+.pp-btn:hover{border-color:var(--grn);box-shadow:0 0 8px rgba(0,255,195,.2);}
+.pp-btn.save{border-color:var(--yel);color:var(--yel);}
+.pp-btn.save:hover{background:var(--yel);color:#000;}
+.pp-btn.dl{border-color:var(--cyn);color:var(--cyn);}
+.pp-btn.dl:hover{background:var(--cyn);color:#000;}
+#pp-list{max-height:80px;overflow-y:auto;margin-top:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.pp-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:3px 0;border-bottom:1px solid rgba(13,37,53,.5);
+  font-size:9px;
+}
+.pp-item-name{color:var(--cyn);cursor:pointer;flex:1;}
+.pp-item-name:hover{color:var(--grn);}
+.pp-item-del{color:var(--mag);cursor:pointer;padding:0 3px;}
+#countdown{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:140px;font-weight:900;color:var(--yel);text-shadow:0 0 40px var(--yel);display:none;z-index:800;pointer-events:none;animation:pg 1s infinite alternate;}
+@keyframes pg{from{transform:translate(-50%,-50%) scale(1);}to{transform:translate(-50%,-50%) scale(1.1);}}
+#hitname{position:fixed;bottom:50px;left:calc(var(--sw) + 50%);transform:translateX(-50%);font-family:'Orbitron',sans-serif;font-size:60px;font-weight:900;color:var(--cyn);text-shadow:0 0 30px var(--cyn);pointer-events:none;opacity:0;z-index:600;transition:opacity .4s;white-space:nowrap;}
+#hitdeg{position:fixed;bottom:28px;left:calc(var(--sw) + 50%);transform:translateX(-50%);font-size:12px;letter-spacing:3px;color:var(--yel);pointer-events:none;opacity:0;z-index:600;transition:opacity .4s;white-space:nowrap;}
+#wavupload{display:none;}
+/* Pointer crosshair — shows current collision point in screen space */
+#ptr{
+  position:fixed;width:18px;height:18px;
+  border-radius:50%;
+  background:transparent;
+  border:2.5px solid #ffe600;
+  box-shadow:0 0 8px #ffe600,inset 0 0 4px rgba(0,255,68,.4);
+  margin-left:-9px;margin-top:-9px;
+  pointer-events:none;z-index:801;display:none;
+}
+/* ── OUTPUT MODE TOGGLE ── */
+#mode-toggle{
+  display:flex;align-items:center;gap:0;
+  border:2px solid var(--grn);border-radius:3px;overflow:hidden;
+  width:100%;
+  box-shadow:0 0 10px rgba(0,255,195,.18),inset 0 0 18px rgba(0,0,0,.7);
+  background:rgba(0,10,6,.85);
+}
+.mode-btn{
+  padding:8px 14px;background:transparent;border:none;cursor:pointer;
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;transition:all .15s;
+  color:var(--grn);
+  text-shadow:0 0 8px rgba(0,255,195,.5);
+}
+.mode-btn.active-sound{
+  background:rgba(0,255,195,.18);color:var(--grn);font-weight:700;
+  box-shadow:inset 0 0 12px rgba(0,255,195,.25);
+  text-shadow:0 0 12px var(--grn);
+}
+.mode-btn.active-midi{
+  background:rgba(0,207,255,.18);color:var(--cyn);font-weight:700;
+  box-shadow:inset 0 0 12px rgba(0,207,255,.25);
+  text-shadow:0 0 12px var(--cyn);
+}
+.mode-btn:not([class*="active"]):hover{
+  background:rgba(0,255,195,.08);color:var(--grn);
+}
+/* separator between buttons */
+#mode-toggle .mode-btn+.mode-btn{border-left:1px solid var(--border);}
+#mode-label{font-size:9px;letter-spacing:1px;color:var(--grn);white-space:nowrap;opacity:.7;}
+#ptr.on{border-color:#00ff44;box-shadow:0 0 12px #00ff44;}
+</style>
+</head>
+<body>
+
+<!-- ══ STARTUP DISCLAIMER MODAL ══ -->
+<div id="disclaimer-overlay" style="position:fixed;inset:0;z-index:9999;background:rgba(2,5,8,.97);display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="max-width:580px;width:100%;background:rgba(4,12,18,.99);border:2px solid var(--grn);border-radius:4px;box-shadow:0 0 40px rgba(0,255,195,.18),0 0 80px rgba(0,0,0,.8);font-family:'Share Tech Mono',monospace;max-height:90vh;overflow-y:auto;">
+    <div style="background:rgba(0,255,195,.07);border-bottom:1px solid var(--border);padding:16px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:1;">
+      <span style="font-size:24px;">&#9888;</span>
+      <div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;letter-spacing:3px;color:var(--grn);text-shadow:0 0 16px rgba(0,255,195,.4);">DISCLAIMER &amp; GETTING STARTED</div>
+        <div style="font-size:11px;letter-spacing:1px;color:var(--grn);opacity:.6;margin-top:4px;">JAMBOXX ADAPTIVE MUSIC CONTROLLER &middot; v25</div>
+      </div>
+    </div>
+    <div style="padding:22px;font-size:13px;line-height:1.9;color:#d4ede8;">
+
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);margin-bottom:12px;">&#9888; DISCLAIMER</div>
+      <p style="margin-bottom:14px;">
+        This software is provided free of charge and is intended
+        exclusively for non-commercial, experimental, and educational use
+        by persons with disabilities, educators, and researchers.
+        It is being used as a demonstration tool to explore adaptive music-making
+        as a creative outlet for individuals with physical disabilities, including quadriplegia.
+      </p>
+      <p style="color:#d4ede8;margin-bottom:14px;">
+        &#128683; Commercial use, redistribution, or sale of this software in any form is strictly prohibited.
+      </p>
+      <div style="border:1px solid var(--border);border-radius:3px;padding:12px 14px;background:#030c14;margin-bottom:22px;font-size:13px;color:#d4ede8;line-height:1.8;">
+        <span style="color:var(--grn);font-weight:bold;">No Warranties:</span>
+        This software is provided as-is for educational purposes and discussion.
+        There are no warranties of any kind, express or implied. The authors accept no liability for any use of this software.
+        This information is distributed freely for educational purposes only.
+      </div>
+
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);margin-bottom:12px;">&#8505; ABOUT</div>
+      <p style="margin-bottom:22px;">
+        The Jamboxx Adaptive Music Controller is part of a suite of web-based tools
+        designed for people with disabilities. These pages are built for
+        educational purposes and research and are distributed at no cost.
+        This tool is part of the broader Jamboxx Infinite project &mdash;
+        a formal initiative designed to help people with spinal cord injuries and other disabilities
+        experience the joy of making music.
+      </p>
+
+      <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);margin-bottom:12px;">&#9654; GETTING STARTED</div>
+      <p style="margin-bottom:14px;">
+        This controller tracks your nose position using your webcam
+        and uses head movement to play music. Multiple input methods are supported &mdash; this version starts with nose tracking.
+      </p>
+      <div style="border:1px solid var(--border);border-radius:3px;padding:14px;background:#030c14;margin-bottom:14px;">
+        <div style="color:var(--grn);margin-bottom:10px;font-size:12px;letter-spacing:1px;">QUICK START:</div>
+        <div style="color:#d4ede8;line-height:2.1;font-size:13px;">
+          &#9312; Click ACTIVATE &mdash; camera starts, a 5-second countdown begins<br>
+          &#9313; Look straight ahead to set your center point<br>
+          &#9314; Dip your nose down onto a note pad to play<br>
+          &#9315; Move left or right to select different notes on the arc<br>
+          &#9316; Choose SOUND to play through the browser, or MIDI to send notes to a DAW
+        </div>
+      </div>
+      <p style="margin-bottom:14px;">
+        In MIDI mode, notes are sent to your DAW via a virtual MIDI cable.
+        We highly recommend Ableton Live, Reaper,
+        and BandLab, along with any program that supports virtual MIDI cables.
+      </p>
+      <div style="border:1px solid var(--border);border-radius:3px;padding:12px 14px;background:#030c14;font-size:13px;color:#d4ede8;line-height:1.8;">
+        <span style="color:var(--grn);font-weight:bold;">&#9889; LATENCY TIP:</span>
+        Avoid high latency &mdash; it causes delays between head movement and sound.
+        Check your DAW buffer settings and use ASIO or CoreAudio drivers for best results.
+        For more information visit <a href="https://isatma.org" target="_blank" style="color:var(--cyn);">isatma.org</a>.
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;align-items:center;position:sticky;bottom:0;background:rgba(4,12,18,.99);">
+      <span style="font-size:11px;color:var(--grn);opacity:.5;letter-spacing:1px;flex:1;">v25 &middot; Non-Commercial &middot; Experimental &middot; Educational</span>
+      <button id="disclaimer-agree" style="padding:10px 24px;background:transparent;border:2px solid var(--grn);color:var(--grn);border-radius:2px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:2px;text-transform:uppercase;transition:all .15s;text-shadow:0 0 8px rgba(0,255,195,.4);box-shadow:0 0 10px rgba(0,255,195,.1);"
+        onmouseover="this.style.background='rgba(0,255,195,0.15)';this.style.boxShadow='0 0 18px rgba(0,255,195,.3)';"
+        onmouseout="this.style.background='transparent';this.style.boxShadow='0 0 10px rgba(0,255,195,.1)';"
+      >&#10003; Agree &amp; Continue</button>
+    </div>
+  </div>
+</div>
+<!-- ══ END STARTUP MODAL ══ -->
+
+<!-- ══ DISCLAIMER PANEL (sidebar overlay) ══ -->
+<div id="disc-panel" style="display:none;position:fixed;top:56px;left:0;width:var(--sw);height:calc(100vh - 56px);background:rgba(4,12,18,.99);border-right:1px solid var(--grn);z-index:9000;overflow-y:auto;padding:20px 18px;font-family:'Share Tech Mono',monospace;font-size:13px;line-height:1.9;color:#d4ede8;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);">&#9888; DISCLAIMER</div>
+    <button onclick="document.getElementById('disc-panel').style.display='none';" style="background:transparent;border:1px solid var(--border);color:var(--grn);padding:4px 10px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:11px;border-radius:2px;">&#10005; CLOSE</button>
+  </div>
+
+  <p style="margin-bottom:12px;">
+    This software is provided free of charge and is intended
+    exclusively for non-commercial, experimental, and educational use
+    by persons with disabilities, educators, and researchers.
+    It is a demonstration tool to explore adaptive music-making as a creative outlet
+    for individuals with physical disabilities, including quadriplegia.
+  </p>
+  <p style="color:#d4ede8;margin-bottom:12px;">
+    &#128683; Commercial use, redistribution, or sale is strictly prohibited.
+  </p>
+  <div style="border:1px solid var(--border);padding:10px 12px;background:#030c14;font-size:13px;color:#d4ede8;line-height:1.8;margin-bottom:18px;border-radius:3px;">
+    <span style="color:var(--grn);font-weight:bold;">No Warranties:</span>
+    Provided as-is for educational purposes and discussion.
+    No warranties of any kind. Authors accept no liability.
+    Distributed freely for educational purposes only.
+  </div>
+
+  <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);margin-bottom:12px;">&#8505; ABOUT</div>
+  <p style="margin-bottom:18px;">
+    Part of the Jamboxx Infinite project &mdash; designed to help people with
+    spinal cord injuries and other disabilities experience making music.
+    These tools are for educational and research purposes, distributed at no cost.
+  </p>
+
+  <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;color:var(--grn);margin-bottom:12px;">&#9654; GETTING STARTED</div>
+  <div style="border:1px solid var(--border);padding:12px;background:#030c14;font-size:13px;color:#d4ede8;line-height:2.0;margin-bottom:12px;border-radius:3px;">
+    &#9312; Click ACTIVATE &mdash; 5-second countdown<br>
+    &#9313; Look straight ahead to set your center point<br>
+    &#9314; Dip your nose down onto a note pad to play<br>
+    &#9315; Select SOUND or MIDI output mode<br>
+    &#9316; In MIDI mode, use a virtual cable to route notes to your DAW
+  </div>
+  <p style="margin-bottom:12px;">
+    Recommended DAWs: Ableton Live, Reaper, BandLab.
+    Use ASIO or CoreAudio drivers to minimize latency.
+  </p>
+  <div style="border:1px solid var(--border);padding:10px 12px;background:#030c14;font-size:13px;color:#d4ede8;line-height:1.8;border-radius:3px;">
+    More information: <a href="https://isatma.org" target="_blank" style="color:var(--cyn);">isatma.org</a>
+  </div>
+</div>
+<!-- ══ END DISCLAIMER PANEL ══ -->
+
+<div id="hdr">
+  <div id="ptitle"><em>Jamboxx</em>&nbsp;Adaptive Music Controller</div>
+  <div class="hsep"></div>
+  <button class="hbtn" id="initBtn">&#9654; Activate</button>
+  <button class="hbtn warn" id="resetBtn">&#9632; Reset</button>
+  <button class="hbtn warn" id="panicBtn" title="All Notes Off — all channels" style="border-color:#ff6600;color:#ff6600;">&#11035; PANIC</button>
+  <div class="hsep"></div>
+  <div class="hstat"><span class="dot" id="sysdot"></span><span id="syslbl">OFFLINE</span></div>
+  <div class="hsep"></div>
+  <div class="hstat"><span class="dot" id="mididot"></span><span>MIDI</span></div>
+  <div class="hstat"><span class="dot" id="miditxdot"></span><span>TX</span></div>
+  <span id="errbox"></span>
+</div>
+
+<div id="countdown">5</div>
+<div id="hitname">C4</div>
+<div id="hitdeg">I — Tonic</div>
+<div id="ptr"></div>
+
+<div id="sb">
+
+  <!-- DISCLAIMER LINK — top of sidebar -->
+  <div class="ss" style="border-top:none;">
+    <div style="padding:8px 16px;">
+      <button onclick="var p=document.getElementById('disc-panel');p.style.display=p.style.display==='none'?'block':'none';" style="width:100%;background:transparent;border:1px solid var(--border);color:var(--grn);padding:7px 0;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;border-radius:2px;transition:all .15s;" onmouseover="this.style.borderColor='var(--grn)';this.style.boxShadow='0 0 8px rgba(0,255,195,.2)';" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none';">&#9888; Disclaimer / About / Getting Started</button>
+    </div>
+  </div>
+
+  <!-- OUTPUT MODE — at top of sidebar -->
+  <div class="ss" style="border-top:none;">
+    <div style="padding:10px 16px 10px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:var(--grn);margin-bottom:8px;opacity:.7;">OUTPUT MODE</div>
+      <div id="mode-toggle" style="display:flex;gap:0;width:100%;">
+        <button class="mode-btn active-sound" id="btn-sound" style="flex:1;text-align:center;">&#128266; SOUND</button>
+        <button class="mode-btn" id="btn-midi" style="flex:1;text-align:center;">&#127929; MIDI</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. SCALE & MODE -->
+  <div class="ss">
+    <div class="sh"><span class="st">Scale &amp; Mode</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div class="fl">Mode / Scale</div>
+      <select id="scaleSelect">
+        <option value="ionian">Ionian — Major (1 2 3 4 5 6 7)</option>
+        <option value="dorian">Dorian (1 2 ♭3 4 5 6 ♭7)</option>
+        <option value="phrygian">Phrygian (1 ♭2 ♭3 4 5 ♭6 ♭7)</option>
+        <option value="lydian">Lydian (1 2 3 ♯4 5 6 7)</option>
+        <option value="mixolydian">Mixolydian (1 2 3 4 5 6 ♭7)</option>
+        <option value="aeolian">Aeolian — Natural Minor (1 2 ♭3 4 5 ♭6 ♭7)</option>
+        <option value="locrian">Locrian (1 ♭2 ♭3 4 ♭5 ♭6 ♭7)</option>
+        <option value="chromatic">Chromatic (all 12 semitones)</option>
+        <option value="pentatonic">Pentatonic Major</option>
+        <option value="pent_minor">Pentatonic Minor</option>
+        <option value="blues">Blues Scale</option>
+        <option value="whole_tone">Whole Tone</option>
+      </select>
+      <div class="fl" style="margin-top:10px;">Root Note</div>
+      <select id="rootNote">
+        <option>C</option><option>C#</option><option>D</option><option>D#</option>
+        <option>E</option><option>F</option><option>F#</option><option>G</option>
+        <option>G#</option><option>A</option><option>A#</option><option>B</option>
+      </select>
+      <div class="fl" style="margin-top:10px;">Octave</div>
+      <select id="octSel">
+        <option value="3">3</option><option value="4" selected>4</option><option value="5">5</option>
+      </select>
+      <div id="scinfo">
+        <div class="sir"><span class="sil">MODE</span><span class="siv" id="si_mode">Ionian</span></div>
+        <div class="sir"><span class="sil">CHARACTER</span><span class="siv" id="si_char">Standard major key</span></div>
+        <div class="sid" id="si_deg">1 — 2 — 3 — 4 — 5 — 6 — 7</div>
+      </div>
+      <div class="fl" style="margin-top:10px;">Active Notes</div>
+      <div class="nstrip" id="nstrip"></div>
+    </div>
+  </div>
+
+  <!-- 2. WEBCAM -->
+  <div class="ss">
+    <div class="sh"><span class="st">Webcam</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div class="cambox">
+        <video id="webcam" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block;"></video>
+        <div id="camst" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:2px;color:var(--dim);background:rgba(2,5,8,.7);">CAMERA OFFLINE</div>
+      </div>
+      <button class="sbtn" id="calBtn">⊕ Recenter</button>
+    </div>
+  </div>
+
+  <!-- 3. ARC CONFIGURATION -->
+  <div class="ss">
+    <div class="sh"><span class="st">Arc Configuration</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div class="rrow">
+        <span class="fl">Radius</span>
+        <input type="range" id="arcR" min="1" max="9" step=".1" value="4.6">
+        <span class="rv" id="arcRv">4.6</span>
+      </div>
+      <div class="rrow">
+        <span class="fl">Spread°</span>
+        <input type="range" id="arcS" min="30" max="200" step="1" value="88">
+        <span class="rv" id="arcSv">88°</span>
+      </div>
+      <div style="margin-top:10px;font-size:9px;color:var(--dim);line-height:1.6;letter-spacing:1px;">
+        Touch = NOTE ON · Release = NOTE OFF<br>
+        Sustain follows tip contact with target
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. MIDI OUTPUT -->
+  <div class="ss">
+    <div class="sh"><span class="st">MIDI Output</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div class="mbadge" id="midibadge">No MIDI — click Request</div><br>
+      <button class="sbtn" id="midiReqBtn">Request MIDI</button>
+      <button class="sbtn" id="midiTestBtn" style="border-color:var(--yel);color:var(--yel);">▶ Test Note</button>
+      <div class="fl">MIDI Port</div>
+      <select id="midiPort"><option value="">— none —</option></select>
+      <div class="rrow">
+        <span class="fl">Channel</span>
+        <input type="range" id="midiCh" min="1" max="16" step="1" value="1">
+        <span class="rv" id="midiChv">1</span>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--dim);line-height:1.6;">
+        ① Request MIDI → select port<br>
+        ② Switch to 🎹 MIDI mode<br>
+        ③ Use ▶ Test Note to verify port<br>
+        ④ Hover pads to play
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. PRESETS -->
+  <div class="ss">
+    <div class="sh"><span class="st">Presets</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <input type="text" id="pp-name" placeholder="Preset name…" maxlength="30"
+        style="width:100%;background:#040d14;color:var(--grn);border:1px solid var(--border);border-radius:2px;padding:5px 8px;font-family:'Share Tech Mono',monospace;font-size:11px;margin-bottom:7px;box-sizing:border-box;">
+      <button class="pp-btn save" id="pp-save-btn">⬇ Save Preset</button>
+      <button class="pp-btn dl" id="pp-dl-btn">↓ Download All</button>
+      <div id="pp-list" style="max-height:120px;overflow-y:auto;margin-top:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;"></div>
+    </div>
+  </div>
+
+  <!-- 6. ADAPTIVE BREATH SWITCH -->
+  <div class="ss">
+    <div class="sh"><span class="st">Breath Switch</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div style="margin-bottom:8px;">
+        <button class="sbtn" id="breathEngineBtn" style="width:100%;text-align:center;border-color:var(--grn);color:var(--grn);">▶ Start Mic Engine</button>
+      </div>
+      <!-- Breath level meter -->
+      <div class="fl">Breath Level</div>
+      <div id="breath-meter-bg" style="width:100%;height:20px;background:#040d14;border:1px solid var(--border);border-radius:2px;position:relative;overflow:hidden;margin-bottom:6px;">
+        <div id="breath-fill" style="position:absolute;left:0;top:0;bottom:0;width:0%;background:#1a3028;border-radius:1px;transition:width .04s;"></div>
+        <div id="breath-thresh-line" style="position:absolute;top:0;bottom:0;width:2px;background:var(--mag);opacity:.9;"></div>
+        <div id="breath-num" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;color:rgba(255,255,255,.4);">0</div>
+      </div>
+      <!-- Status -->
+      <div id="breath-status" style="font-size:10px;letter-spacing:1px;color:var(--dim);margin-bottom:8px;padding:4px 8px;border:1px solid var(--border);border-radius:2px;">OFFLINE</div>
+      <!-- Raw waveform -->
+      <div class="fl">Raw Input</div>
+      <canvas id="breath-raw-canvas" width="278" height="32" style="width:100%;height:32px;background:#000;border:1px solid var(--border);border-radius:2px;display:block;margin-bottom:8px;"></canvas>
+      <!-- Controls -->
+      <div class="rrow">
+        <span class="fl">Gain</span>
+        <input type="range" id="breathGain" min="1" max="200" value="50">
+        <span class="rv" id="breathGainV">50x</span>
+      </div>
+      <div class="rrow">
+        <span class="fl" style="color:var(--mag);">Thresh</span>
+        <input type="range" id="breathThresh" min="1" max="100" value="15" style="accent-color:var(--mag);">
+        <span class="rv" id="breathThreshV" style="color:var(--mag);">15</span>
+      </div>
+      <div class="rrow">
+        <span class="fl">Hold ms</span>
+        <input type="range" id="breathHold" min="0" max="300" value="60" step="10">
+        <span class="rv" id="breathHoldV">60</span>
+      </div>
+      <div style="font-size:9px;color:var(--dim);line-height:1.6;margin-top:6px;letter-spacing:1px;">
+        Blow into mic → triggers selected note.<br>
+        Head left/right → selects note on arc.
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. SOUND ENGINE (at bottom) -->
+  <div class="ss">
+    <div class="sh"><span class="st">Sound Engine</span><span class="sar">▶</span></div>
+    <div class="sbody closed">
+      <div class="fl">Tone.js Synth</div>
+      <select id="synthType">
+        <option value="fm" selected>FM Synth</option>
+        <option value="synth">Basic Synth</option>
+        <option value="am">AM Synth</option>
+        <option value="pluck">Pluck Synth</option>
+        <option value="membrane">Membrane (Drum)</option>
+        <option value="metal">Metal Synth</option>
+        <option value="custom">Custom Sample</option>
+      </select>
+      <div class="rrow">
+        <span class="fl">Volume</span>
+        <input type="range" id="volCtrl" min="-40" max="0" step="1" value="-6">
+        <span class="rv" id="volVal">-6dB</span>
+      </div>
+      <div class="rrow">
+        <span class="fl">Reverb</span>
+        <input type="range" id="revCtrl" min="0" max="1" step=".01" value="0.3">
+        <span class="rv" id="revVal">30%</span>
+      </div>
+      <div class="rrow">
+        <span class="fl">Duration</span>
+        <input type="range" id="durCtrl" min="0.1" max="3" step=".05" value="0.6">
+        <span class="rv" id="durVal">0.6s</span>
+      </div>
+      <div class="rrow">
+        <span class="fl">Velocity</span>
+        <input type="range" id="velCtrl" min="0.05" max="1" step=".01" value="0.8">
+        <span class="rv" id="velVal">80%</span>
+      </div>
+      <div class="upzone" id="upzone">⬆ Upload .WAV / .MP3 sample</div>
+      <input type="file" id="wavupload" accept=".wav,.mp3,.ogg">
+      <div id="wavname" style="font-size:9px;color:var(--cyn);margin-top:4px;display:none;"></div>
+      <!-- Sound Engine Test Note -->
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+        <div class="fl" style="margin-bottom:6px;">Sound Test</div>
+        <button class="sbtn" id="soundTestBtn" style="border-color:var(--grn);color:var(--grn);width:100%;text-align:center;">&#9654; Test Note</button>
+        <div id="soundTestStatus" style="font-size:9px;letter-spacing:1px;margin-top:5px;padding:3px 6px;border:1px solid transparent;border-radius:2px;display:none;color:var(--dim);"></div>
+        <div style="font-size:9px;color:var(--dim);line-height:1.6;margin-top:5px;letter-spacing:1px;">
+          Plays middle C using current synth &amp; volume settings.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<div id="canvas-wrap"></div>
+
+<!-- MIDI Monitor — upper-right of canvas -->
+<div id="midi-mon">
+  <div id="mm-hdr">
+    <span id="mm-hdr-title">MIDI MONITOR</span>
+    <div id="mm-hdr-btns">
+      <button class="mm-btn" id="mm-copy-btn" title="Copy log to clipboard">COPY</button>
+      <button class="mm-btn" id="mm-share-btn" title="Share log via email">SHARE</button>
+      <button class="mm-btn" id="mm-clear-btn" title="Clear log">CLR</button>
+      <span id="mm-act"></span>
+    </div>
+  </div>
+  <div id="mm-log"></div>
+  <div id="mm-foot">
+    <span>TX: <span id="mm-cnt">0</span></span>
+  </div>
+</div>
+<span id="mm-port" style="display:none;">No port</span>
+
+<!-- Load Tone.js FIRST — must be available before any audio code runs -->
+<script>
+  document.getElementById('disclaimer-agree').addEventListener('click', function(){
+    var overlay = document.getElementById('disclaimer-overlay');
+    overlay.style.transition = 'opacity .4s';
+    overlay.style.opacity = '0';
+    setTimeout(function(){ overlay.style.display = 'none'; }, 420);
+  });
+</script>
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+
+<!-- THREE.JS -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+<script>
+// ══════════════════════════════════════════
+//  SCALE DATA
+// ══════════════════════════════════════════
+var SCALES = {
+  ionian:     {name:'Ionian',char:'Standard major key',iv:[0,2,4,5,7,9,11],deg:['1','2','3','4','5','6','7'],rom:['I','ii','iii','IV','V','vi','vii°']},
+  dorian:     {name:'Dorian',char:'Jazz, funk, soulful',iv:[0,2,3,5,7,9,10],deg:['1','2','♭3','4','5','6','♭7'],rom:['i','ii','♭III','IV','v','vi°','♭VII']},
+  phrygian:   {name:'Phrygian',char:'Spanish, metal, exotic',iv:[0,1,3,5,7,8,10],deg:['1','♭2','♭3','4','5','♭6','♭7'],rom:['i','♭II','♭III','iv','v°','♭VI','♭vii']},
+  lydian:     {name:'Lydian',char:'Film music, dreamy',iv:[0,2,4,6,7,9,11],deg:['1','2','3','♯4','5','6','7'],rom:['I','II','iii','♯iv°','V','vi','vii']},
+  mixolydian: {name:'Mixolydian',char:'Blues, rock, Celtic',iv:[0,2,4,5,7,9,10],deg:['1','2','3','4','5','6','♭7'],rom:['I','ii','iii°','IV','v','vi','♭VII']},
+  aeolian:    {name:'Aeolian',char:'Natural minor key',iv:[0,2,3,5,7,8,10],deg:['1','2','♭3','4','5','♭6','♭7'],rom:['i','ii°','♭III','iv','v','♭VI','♭VII']},
+  locrian:    {name:'Locrian',char:'Rare, jazz theory',iv:[0,1,3,5,6,8,10],deg:['1','♭2','♭3','4','♭5','♭6','♭7'],rom:['i°','♭II','♭iii','iv','♭V','♭VI','♭vii']},
+  chromatic:  {name:'Chromatic',char:'All 12 semitones',iv:[0,1,2,3,4,5,6,7,8,9,10,11],deg:['1','♭2','2','♭3','3','4','♯4','5','♭6','6','♭7','7'],rom:['I','','II','','III','IV','','V','','VI','','VII']},
+  pentatonic: {name:'Pentatonic Major',char:'Universal, folk, pop',iv:[0,2,4,7,9,12,14,16,19,21,24,26],deg:['1','2','3','5','6','1','2','3','5','6','1','2'],rom:['I','II','III','V','VI','I','II','III','V','VI','I','II']},
+  pent_minor: {name:'Pentatonic Minor',char:'Rock, blues, global',iv:[0,3,5,7,10,12,15,17,19,22,24,27],deg:['1','♭3','4','5','♭7','1','♭3','4','5','♭7','1','♭3'],rom:['i','♭III','IV','v','♭VII','i','♭III','IV','v','♭VII','i','♭III']},
+  blues:      {name:'Blues',char:'Blues, gospel, jazz',iv:[0,3,5,6,7,10,12,15,17,18,19,22],deg:['1','♭3','4','♯4','5','♭7','1','♭3','4','♯4','5','♭7'],rom:['i','♭III','IV','♯IV','V','♭VII','i','♭III','IV','♯IV','V','♭VII']},
+  whole_tone: {name:'Whole Tone',char:'Impressionist, dreamy',iv:[0,2,4,6,8,10,12,14,16,18,20,22],deg:['1','2','3','♯4','♯5','♯6','1','2','3','♯4','♯5','♯6'],rom:['I','II','III','♯IV','♯V','♯VI','I','II','III','♯IV','♯V','♯VI']},
+};
+var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+var ROOT_SEMI = {C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+
+function getSD(){return SCALES[document.getElementById('scaleSelect').value]||SCALES.ionian;}
+function getNoteCount(){return Math.min(12,getSD().iv.length);}
+function getNoteMidi(i){
+  var sc=getSD(), root=ROOT_SEMI[document.getElementById('rootNote').value]||0;
+  var oct=parseInt(document.getElementById('octSel').value)||4;
+  return root+(oct+1)*12+(sc.iv[i]||0);
+}
+function getNN(i){var m=getNoteMidi(i);return NOTE_NAMES[m%12]+Math.floor(m/12-1);}
+function getNDeg(i){return getSD().deg[i]||String(i+1);}
+function getNRom(i){return getSD().rom[i]||'';}
+
+function updateScaleInfo(){
+  var sc=getSD(), n=getNoteCount();
+  document.getElementById('si_mode').textContent=sc.name;
+  document.getElementById('si_char').textContent=sc.char;
+  document.getElementById('si_deg').textContent=sc.deg.slice(0,n).join(' — ');
+  var strip=document.getElementById('nstrip');
+  strip.innerHTML='';
+  for(var i=0;i<n;i++){
+    var c=document.createElement('div');
+    c.className='nchip';c.id='nc'+i;
+    c.textContent=getNN(i);strip.appendChild(c);
+  }
+}
+updateScaleInfo();
+
+// ══════════════════════════════════════════
+//  THREE.JS SCENE
+// ══════════════════════════════════════════
+var scene,camera,renderer,charGroup,skull3,mouth3,wandTip3,wandGlow3,arcGroup,notePads=[];
+var rawX=0,rawY=0,offX=0,offY=0,sysActive=false;
+
+// ── SUSTAIN STATE: tracks which pads are currently being touched ──
+// touching[i] = true while wand is over pad i
+var touching={};
+var collisionEnabled=false; // set true only after countdown completes
+
+function initThree(){
+  var wrap=document.getElementById('canvas-wrap');
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(50,wrap.clientWidth/wrap.clientHeight,.1,1000);
+  camera.position.z=14;
+
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setSize(wrap.clientWidth,wrap.clientHeight);
+  renderer.setClearColor(0x020508,1);
+  wrap.appendChild(renderer.domElement);
+
+  charGroup=new THREE.Group();
+  // Skull face mesh — bright illuminated purple wireframe
+  skull3=new THREE.Mesh(
+    new THREE.IcosahedronGeometry(2.6,2),
+    new THREE.MeshBasicMaterial({color:0x00ffc3,wireframe:true,transparent:true,opacity:.55})
+  );
+  // Second skull layer — solid glow fill
+  var skullGlow=new THREE.Mesh(
+    new THREE.IcosahedronGeometry(2.6,2),
+    new THREE.MeshBasicMaterial({color:0x00aa88,transparent:true,opacity:.08})
+  );
+  mouth3=new THREE.Mesh(
+    new THREE.TorusGeometry(.42,.07,16,64),
+    new THREE.MeshBasicMaterial({color:0xdd88ff})
+  );
+  mouth3.position.set(0,-.85,2.2);
+  // Mouth stick — YELLOW rod
+  var stk=new THREE.Mesh(
+    new THREE.CylinderGeometry(.04,.04,6.5),
+    new THREE.MeshBasicMaterial({color:0xffe600})
+  );
+  stk.rotation.x=Math.PI/2; stk.position.set(0,-.85,5.7);
+  charGroup.add(skull3,skullGlow,mouth3,stk);
+  scene.add(charGroup);
+
+  // Wand tip — BRIGHT RED solid ball
+  wandTip3=new THREE.Mesh(
+    new THREE.SphereGeometry(.07,16,16),
+    new THREE.MeshBasicMaterial({color:0xff2020})
+  );
+  // Thin red ring around tip
+  var tipRing=new THREE.Mesh(
+    new THREE.TorusGeometry(.07,.012,8,32),
+    new THREE.MeshBasicMaterial({color:0xff6666})
+  );
+  // Store ring so we can position it with the tip
+  wandTip3.userData.ring=tipRing;
+  // wandGlow3 — red outer glow
+  wandGlow3=new THREE.Mesh(
+    new THREE.SphereGeometry(.10,12,12),
+    new THREE.MeshBasicMaterial({color:0xcc0000,transparent:true,opacity:.35})
+  );
+  scene.add(wandTip3,wandGlow3,tipRing);
+
+  arcGroup=new THREE.Group();
+  scene.add(arcGroup);
+  buildArc();
+
+  window.addEventListener('resize',function(){
+    var w=document.getElementById('canvas-wrap');
+    camera.aspect=w.clientWidth/w.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w.clientWidth,w.clientHeight);
+  });
+  renderLoop();
+  attachMouseHover();
+}
+
+function buildArc(){
+  while(arcGroup.children.length) arcGroup.remove(arcGroup.children[0]);
+  notePads=[];
+  padScreenPos=[];
+  // Release any held notes when arc rebuilds
+  Object.keys(touching).forEach(function(k){
+    if(touching[k]){ touching[k]=false; noteOff(parseInt(k)); }
+  });
+  touching={};
+
+  var R=parseFloat(document.getElementById('arcR').value)||3;
+  var spr=(parseFloat(document.getElementById('arcS').value)||88)*Math.PI/180;
+  var n=getNoteCount(), half=spr/2;
+  // Rainbow hues spread evenly across ROYGBIV (0°→270°)
+  for(var i=0;i<n;i++){
+    var t=n>1?i/(n-1):.5;
+    var ang=-half+t*spr;
+    var x=Math.sin(ang)*R, y=-Math.cos(ang)*R+2.0, z=2.5;
+    // ROYGBIV: map 0-1 to hue 0°-270° (red→violet)
+    var hue=(t*0.75);
+
+    // Flat-top rectangular pad (PlaneGeometry gives flat edges)
+    var padMat=new THREE.MeshBasicMaterial({
+      color:new THREE.Color().setHSL(hue,1,.28),
+      transparent:true,opacity:.72,side:THREE.DoubleSide
+    });
+    var pad=new THREE.Mesh(new THREE.PlaneGeometry(.88,.78),padMat);
+    pad.position.set(x,y,z);
+
+    // Metallic top-edge highlight — thin bright strip at top of pad
+    var topEdgeMat=new THREE.MeshBasicMaterial({
+      color:new THREE.Color().setHSL(hue,0.6,.88),
+      transparent:true,opacity:.9,side:THREE.DoubleSide
+    });
+    var topEdge=new THREE.Mesh(new THREE.PlaneGeometry(.88,.045),topEdgeMat);
+    topEdge.position.set(x,y+.39,z+.005);
+
+    // Bottom edge — slightly darker metallic
+    var botEdgeMat=new THREE.MeshBasicMaterial({
+      color:new THREE.Color().setHSL(hue,0.5,.55),
+      transparent:true,opacity:.85,side:THREE.DoubleSide
+    });
+    var botEdge=new THREE.Mesh(new THREE.PlaneGeometry(.88,.03),botEdgeMat);
+    botEdge.position.set(x,y-.385,z+.005);
+
+    // Bright outer ring border
+    var ringMat=new THREE.MeshBasicMaterial({
+      color:new THREE.Color().setHSL(hue,1,.75),
+      transparent:true,opacity:.9,side:THREE.DoubleSide
+    });
+    var ring=new THREE.Mesh(new THREE.RingGeometry(.48,.54,4),ringMat);
+    ring.position.set(x,y,z+.01);
+
+    var tex=makeNoteTex(i,hue);
+    var lbl=new THREE.Mesh(
+      new THREE.PlaneGeometry(1.1,.72),
+      new THREE.MeshBasicMaterial({map:tex,transparent:true,side:THREE.DoubleSide})
+    );
+    lbl.position.set(x,y,z+.02);
+
+    arcGroup.add(pad,topEdge,botEdge,ring,lbl);
+    notePads.push({pad:pad,ring:ring,lbl:lbl,hue:hue,hit:1.0});
+  }
+}
+
+function makeNoteTex(i,hue){
+  var c=document.createElement('canvas');
+  c.width=220;c.height=180;
+  var ctx=c.getContext('2d');
+  var deg=Math.round(hue*360);
+  // Flat rectangular background — metallic gradient top-to-bottom
+  var grad=ctx.createLinearGradient(0,0,0,180);
+  grad.addColorStop(0,   'hsl('+deg+',55%,62%)');  // bright top (metallic highlight)
+  grad.addColorStop(0.08,'hsl('+deg+',70%,22%)');  // quick drop to dark body
+  grad.addColorStop(0.92,'hsl('+deg+',65%,18%)');  // dark lower body
+  grad.addColorStop(1,   'hsl('+deg+',45%,10%)');  // dark bottom edge shadow
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,220,180);
+  // Top metallic sheen strip
+  ctx.fillStyle='hsla('+deg+',60%,80%,.55)';
+  ctx.fillRect(0,0,220,8);
+  // Bottom shadow strip
+  ctx.fillStyle='rgba(0,0,0,.45)';
+  ctx.fillRect(0,172,220,8);
+  // Subtle left/right edge highlights
+  var edgeGrad=ctx.createLinearGradient(0,0,220,0);
+  edgeGrad.addColorStop(0,'hsla('+deg+',60%,70%,.2)');
+  edgeGrad.addColorStop(0.5,'transparent');
+  edgeGrad.addColorStop(1,'hsla('+deg+',60%,70%,.2)');
+  ctx.fillStyle=edgeGrad;
+  ctx.fillRect(0,0,220,180);
+  // Border
+  ctx.strokeStyle='hsl('+deg+',100%,68%)';ctx.lineWidth=4;
+  ctx.strokeRect(2,2,216,176);
+  // Note name
+  ctx.fillStyle='hsl('+deg+',100%,94%)';
+  ctx.font='bold 68px monospace';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.shadowColor='hsl('+deg+',100%,80%)';ctx.shadowBlur=12;
+  ctx.fillText(getNN(i),110,90);
+  // Scale degree
+  ctx.shadowBlur=0;
+  ctx.font='bold 26px monospace';ctx.fillStyle='hsl('+deg+',70%,82%)';
+  ctx.fillText(getNDeg(i),110,124);
+  // Roman numeral
+  ctx.font='18px monospace';ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.fillText(getNRom(i),110,150);
+  var tex=new THREE.CanvasTexture(c);
+  tex.needsUpdate=true;
+  return tex;
+}
+
+var clock3=new THREE.Clock();
+
+// ── Screen-space positions of each pad (updated every frame) ──
+// padScreenPos[i] = {x, y} in canvas pixels
+var padScreenPos=[];
+// Current pointer position in canvas pixels (from mouse OR wand tip projection)
+var pointerScreenX=0, pointerScreenY=0;
+// Mouse hover mode — updated by mousemove on canvas
+var mouseHoverX=0, mouseHoverY=0;
+var mouseMode=false; // true while mouse is over the canvas
+
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  var t=clock3.getElapsedTime();
+  var wrap=document.getElementById('canvas-wrap');
+  var cw=wrap.clientWidth, ch=wrap.clientHeight;
+
+  if(charGroup){
+    charGroup.rotation.y=THREE.MathUtils.lerp(charGroup.rotation.y,(rawX-offX)*.15,.1);
+    charGroup.rotation.x=THREE.MathUtils.lerp(charGroup.rotation.x,(rawY-offY)*.14,.1);
+    skull3.rotation.y=t*.08;
+    var skullPulse=0.45+0.18*Math.sin(t*1.8);
+    skull3.material.opacity=skullPulse;
+
+    charGroup.updateMatrixWorld(true);
+    var lp=new THREE.Vector3(0,-.85,9.2);
+    var wp=lp.applyMatrix4(charGroup.matrixWorld);
+
+    // Move tip + ring + glow to world position — NO pulsing
+    wandTip3.position.copy(wp);
+    wandGlow3.position.copy(wp);
+    wandGlow3.scale.setScalar(1.0);
+    if(wandTip3.userData.ring){
+      wandTip3.userData.ring.position.copy(wp);
+    }
+
+    // ── PROJECT WAND TIP TO SCREEN PIXELS ──
+    // This is the definitive position used for collision.
+    var tipNDC=wp.clone().project(camera);
+    var tipSX=(tipNDC.x*0.5+0.5)*cw;
+    var tipSY=(-tipNDC.y*0.5+0.5)*ch;
+
+    // Decide which input to use:
+    // Mouse mode takes over whenever the mouse is on the canvas.
+    // Wand mode only runs when sysActive (face tracking live) AND not mouse mode.
+    var activeSX, activeSY;
+    if(mouseMode){
+      activeSX=mouseHoverX; activeSY=mouseHoverY;
+    } else if(sysActive){
+      activeSX=tipSX; activeSY=tipSY;
+    } else {
+      // System not started and no mouse — don't trigger anything
+      activeSX=tipSX; activeSY=tipSY;
+      // collisionEnabled remains false until countdown ends or mouse enters
+    }
+    pointerScreenX=activeSX; pointerScreenY=activeSY;
+
+    // ── PROJECT EACH PAD CENTER TO SCREEN PIXELS ──
+    padScreenPos=[];
+    notePads.forEach(function(pd){
+      var pNDC=pd.pad.position.clone().project(camera);
+      var sx=(pNDC.x*0.5+0.5)*cw;
+      var sy=(-pNDC.y*0.5+0.5)*ch;
+      padScreenPos.push({x:sx,y:sy});
+    });
+
+    // ── UPDATE POINTER INDICATOR DOT on screen ──
+    var ptrEl=document.getElementById('ptr');
+    if(ptrEl){
+      var wrap2=document.getElementById('canvas-wrap');
+      var wRect=wrap2.getBoundingClientRect();
+      ptrEl.style.left=(wRect.left+activeSX)+'px';
+      ptrEl.style.top=(wRect.top+activeSY)+'px';
+      if(sysActive||mouseMode) ptrEl.style.display='block';
+    }
+
+    // ── RUN COLLISION in screen space ──
+    checkHitsScreen(activeSX, activeSY);
+  }
+
+  var n=getNoteCount();
+  notePads.forEach(function(pd,i){
+    pd.pad.scale.setScalar(1.0);
+    pd.ring.scale.setScalar(1.0);
+    pd.lbl.scale.setScalar(1.0);
+    if(touching[i]){
+      pd.pad.material.color.setHSL(i/n,1,.78);
+      pd.ring.material.color.setHSL(i/n,1,.95);
+      pd.ring.material.opacity=1;
+    } else {
+      pd.pad.material.color.setHSL(i/n,1,.40);
+      pd.ring.material.color.setHSL(i/n,1,.70);
+      pd.ring.material.opacity=0.85;
+    }
+  });
+  if(renderer) renderer.render(scene,camera);
+}
+
+// ══════════════════════════════════════════
+//  COLLISION — Screen-Space projection
+//
+//  Every pad center is projected from 3D world space
+//  into 2D canvas pixels using the camera's projection matrix.
+//  The wand tip is also projected to canvas pixels.
+//  Collision radius in screen pixels:
+//    PAD_SCREEN_R = how large the pad appears on screen
+//    TIP_SCREEN_R = how large the tip appears on screen
+//
+//  This approach is bulletproof regardless of head rotation,
+//  Z-depth differences, or perspective distortion.
+//  It is exactly what mouse-hover uses — same pixel space.
+// ══════════════════════════════════════════
+var PAD_SCREEN_R=52;  // pixels — matches visible pad size on screen
+var TIP_SCREEN_R=9;   // pixels — matches the 18px #ptr ring (radius = 9)
+var HIT_SCREEN_R2=(PAD_SCREEN_R+TIP_SCREEN_R)*(PAD_SCREEN_R+TIP_SCREEN_R);
+
+function checkHitsScreen(sx,sy){
+  // Only run collision if the system is active AND calibration countdown is done,
+  // OR if the user is deliberately hovering with the mouse/touch.
+  // This prevents spurious note-on at startup before the player is ready.
+  if(!collisionEnabled) return;
+
+  var n=notePads.length;
+  for(var i=0;i<n;i++){
+    if(!padScreenPos[i]) continue;
+    var dx=sx-padScreenPos[i].x;
+    var dy=sy-padScreenPos[i].y;
+    var dist2=dx*dx+dy*dy;
+    var inside=dist2<=HIT_SCREEN_R2;
+    if(inside && !touching[i]){
+      touching[i]=true;
+      noteOn(i);
+    } else if(!inside && touching[i]){
+      touching[i]=false;
+      noteOff(i);
+    }
+  }
+}
+
+// ── Mouse hover support ──
+function attachMouseHover(){
+  var canvasEl=renderer.domElement;
+
+  // mouseenter fires the instant the cursor enters the canvas
+  canvasEl.addEventListener('mouseenter',function(){
+    // Enable collision for mouse hover regardless of mode
+    collisionEnabled=true;
+    // Boot audio if in sound mode
+    if(outputMode==='sound' && !audioBootstrapped && !toneInitPromise){
+      preinitTone();
+    }
+  });
+
+  canvasEl.addEventListener('mousemove',function(e){
+    var rect=canvasEl.getBoundingClientRect();
+    mouseHoverX=e.clientX-rect.left;
+    mouseHoverY=e.clientY-rect.top;
+    mouseMode=true;
+    collisionEnabled=true;
+    // Boot audio in sound mode
+    if(outputMode==='sound' && !audioBootstrapped && !toneInitPromise){
+      preinitTone();
+    }
+  });
+
+  canvasEl.addEventListener('mouseleave',function(){
+    mouseMode=false;
+    // Release all held notes when mouse leaves canvas
+    var n=notePads.length;
+    for(var i=0;i<n;i++){
+      if(touching[i]){touching[i]=false;noteOff(i);}
+    }
+    // If face tracking not active, disable collision again when mouse leaves
+    if(!sysActive) collisionEnabled=false;
+  });
+
+  // Touch support for mobile
+  canvasEl.addEventListener('touchmove',function(e){
+    e.preventDefault();
+    var rect=canvasEl.getBoundingClientRect();
+    var touch=e.touches[0];
+    mouseHoverX=touch.clientX-rect.left;
+    mouseHoverY=touch.clientY-rect.top;
+    mouseMode=true;
+    collisionEnabled=true;
+  },{passive:false});
+
+  canvasEl.addEventListener('touchend',function(){
+    mouseMode=false;
+    var n=notePads.length;
+    for(var i=0;i<n;i++){
+      if(touching[i]){touching[i]=false;noteOff(i);}
+    }
+    if(!sysActive) collisionEnabled=false;
+  });
+}
+
+// ══════════════════════════════════════════
+//  OUTPUT MODE — 'sound' or 'midi', never both
+// ══════════════════════════════════════════
+var outputMode='sound'; // default: internal sound engine
+
+function setMode(m){
+  // Release all currently held notes before switching
+  Object.keys(touching).forEach(function(k){
+    if(touching[k]){ touching[k]=false; noteOff(parseInt(k)); }
+  });
+  touching={};
+
+  outputMode=m;
+  var bs=document.getElementById('btn-sound');
+  var bm=document.getElementById('btn-midi');
+  if(m==='sound'){
+    bs.className='mode-btn active-sound';
+    bm.className='mode-btn';
+    // Audio will bootstrap on next user gesture
+  } else {
+    bm.className='mode-btn active-midi';
+    bs.className='mode-btn';
+    // MIDI mode: enable collision immediately — no audio init needed
+    collisionEnabled=true;
+    // If MIDI is granted but no port selected yet, auto-scan now
+    if(midiAccess && !midiOut) scanMidiPorts();
+  }
+}
+
+function noteOn(i){
+  if(noteActive[i]) return;
+  noteActive[i]=true;
+  if(outputMode==='sound'){
+    startNoteAudio(i);
+  } else {
+    sendMidiOn(i);
+  }
+  triggerHitVisual(i,true);
+}
+
+function noteOff(i){
+  noteActive[i]=false;
+  if(outputMode==='sound'){
+    stopNoteAudio(i);
+  } else {
+    sendMidiOff(i);
+  }
+  triggerHitVisual(i,false);
+}
+
+// ── Per-note active flag ──
+var noteActive={};
+
+// ── Audio bootstrap (Sound mode only) ──
+var audioBootstrapped=false;
+var toneInitPromise=null;
+
+function preinitTone(){
+  if(audioBootstrapped) return Promise.resolve();
+  if(toneInitPromise) return toneInitPromise;
+  if(typeof Tone==='undefined'){
+    logMM('ERR','Tone.js not loaded yet');
+    return Promise.reject('Tone not loaded');
+  }
+  toneInitPromise=Tone.start().then(function(){
+    toneReady=true;
+    ensureToneGraph();
+    audioBootstrapped=true;
+    logMM('SYS','Audio ready');
+  }).catch(function(e){
+    toneInitPromise=null; // allow retry
+    logMM('ERR','Audio init: '+e);
+  });
+  return toneInitPromise;
+}
+
+function startNoteAudio(i){
+  // Only runs in SOUND mode — never called in MIDI mode
+  if(!audioBootstrapped){
+    // Queue the note — play it the moment audio context is ready
+    preinitTone().then(function(){
+      // Note is still being held? Play it now.
+      if(noteActive[i] && outputMode==='sound') _playNote(i);
+    });
+    return;
+  }
+  if(!masterVol) ensureToneGraph();
+  _playNote(i);
+}
+
+function _playNote(i){
+  if(outputMode!=='sound') return;
+  if(!mainSynth && document.getElementById('synthType').value!=='custom') return;
+  var midi=getNoteMidi(i);
+  var freq=Tone.Frequency(midi,'midi').toFrequency();
+  var vel=parseFloat(document.getElementById('velCtrl').value);
+  var tn=Tone.now();
+  var tp=document.getElementById('synthType').value;
+  if(tp==='custom'&&customPlayer){
+    try{customPlayer.start(tn);}catch(e){}
+  } else if(mainSynth){
+    try{mainSynth.triggerAttack(freq,tn,vel);}catch(e){}
+  }
+}
+
+function stopNoteAudio(i){
+  // Only runs in SOUND mode
+  if(outputMode!=='sound') return;
+  if(!audioBootstrapped || !mainSynth) return;
+  var midi=getNoteMidi(i);
+  var freq=Tone.Frequency(midi,'midi').toFrequency();
+  try{mainSynth.triggerRelease(freq,Tone.now());}catch(e){}
+}
+
+function triggerHitVisual(i,on){
+  var pd=notePads[i]; if(!pd)return;
+  var ptrEl=document.getElementById('ptr');
+  if(on){
+    document.querySelectorAll('.nchip').forEach(function(c){c.classList.remove('hit');});
+    var ch=document.getElementById('nc'+i);
+    if(ch) ch.classList.add('hit');
+    document.getElementById('hitname').textContent=getNN(i);
+    document.getElementById('hitdeg').textContent=getNRom(i)+' — Degree '+getNDeg(i);
+    document.getElementById('hitname').style.opacity='1';
+    document.getElementById('hitdeg').style.opacity='1';
+    var deg=Math.round(pd.hue*360);
+    document.getElementById('canvas-wrap').style.boxShadow='inset 0 0 90px hsla('+deg+',100%,60%,.22)';
+    if(ptrEl) ptrEl.classList.add('on');
+  } else {
+    var ch=document.getElementById('nc'+i);
+    if(ch) ch.classList.remove('hit');
+    if(ptrEl) ptrEl.classList.remove('on');
+    var anyOn=Object.keys(touching).some(function(k){return touching[k];});
+    if(!anyOn){
+      document.getElementById('hitname').style.opacity='0';
+      document.getElementById('hitdeg').style.opacity='0';
+      document.getElementById('canvas-wrap').style.boxShadow='';
+    }
+  }
+}
+
+// ══════════════════════════════════════════
+//  TONE.JS AUDIO ENGINE
+// ══════════════════════════════════════════
+var masterVol=null,revFX=null,mainSynth=null,customPlayer=null;
+var toneReady=false;
+
+function ensureToneGraph(){
+  var v=parseFloat(document.getElementById('volCtrl').value);
+  var r=parseFloat(document.getElementById('revCtrl').value);
+  if(!masterVol){
+    masterVol=new Tone.Volume(v).toDestination();
+    revFX=new Tone.Reverb({decay:2,wet:r}).connect(masterVol);
+    // Build initial synth after graph exists
+    var tp=document.getElementById('synthType').value;
+    if(tp!=='custom'){
+      if(tp==='fm')        mainSynth=new Tone.PolySynth(Tone.FMSynth,{harmonicity:2,modulationIndex:4}).connect(revFX);
+      else if(tp==='am')   mainSynth=new Tone.PolySynth(Tone.AMSynth).connect(revFX);
+      else if(tp==='pluck')mainSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:.01,decay:.8,sustain:.3,release:1.5}}).connect(revFX);
+      else if(tp==='membrane') mainSynth=new Tone.PolySynth(Tone.MembraneSynth,{pitchDecay:.05,octaves:4}).connect(revFX);
+      else if(tp==='metal')    mainSynth=new Tone.PolySynth(Tone.MetalSynth).connect(revFX);
+      else mainSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:.01,decay:.2,sustain:.7,release:1.0}}).connect(revFX);
+    }
+  } else {
+    // Already built — just apply current slider values
+    masterVol.volume.value=v;
+    revFX.wet.value=r;
+  }
+}
+
+function rebuildSynth(){
+  if(mainSynth){try{mainSynth.releaseAll();}catch(e){}try{mainSynth.dispose();}catch(e){} mainSynth=null;}
+  var tp=document.getElementById('synthType').value;
+  if(tp==='custom'||!revFX) return;
+  if(tp==='fm')        mainSynth=new Tone.PolySynth(Tone.FMSynth,{harmonicity:2,modulationIndex:4}).connect(revFX);
+  else if(tp==='am')   mainSynth=new Tone.PolySynth(Tone.AMSynth).connect(revFX);
+  else if(tp==='pluck')mainSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:.01,decay:.8,sustain:.3,release:1.5}}).connect(revFX);
+  else if(tp==='membrane')mainSynth=new Tone.PolySynth(Tone.MembraneSynth,{pitchDecay:.05,octaves:4}).connect(revFX);
+  else if(tp==='metal')mainSynth=new Tone.PolySynth(Tone.MetalSynth).connect(revFX);
+  else mainSynth=new Tone.PolySynth(Tone.Synth,{oscillator:{type:'triangle'},envelope:{attack:.01,decay:.2,sustain:.7,release:1.0}}).connect(revFX);
+}
+
+// ══════════════════════════════════════════
+//  FACE TRACKING
+// ══════════════════════════════════════════
+var faceLandmarker=null,videoEl=null,faceLooping=false;
+
+async function startSystem(){
+  document.getElementById('initBtn').disabled=true;
+  document.getElementById('syslbl').textContent='STARTING…';
+  setErr('');
+  videoEl=document.getElementById('webcam'); // now in the overlay
+  try{
+    var stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:640,height:480,facingMode:'user'},
+      audio:false
+    });
+    videoEl.srcObject=stream;
+    videoEl.onloadedmetadata=function(){videoEl.play();};
+    // Hide the OFFLINE overlay once camera is live
+    var camst=document.getElementById('camst');
+    if(camst) camst.style.display='none';
+
+    // Load MediaPipe dynamically
+    var mp=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs');
+    var fileset=await mp.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm');
+    faceLandmarker=await mp.FaceLandmarker.createFromOptions(fileset,{
+      baseOptions:{
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+        delegate:'CPU'
+      },
+      runningMode:'VIDEO',numFaces:1
+    });
+
+    sysActive=true;
+    document.getElementById('sysdot').classList.add('live');
+    document.getElementById('syslbl').textContent='LIVE';
+
+    // Start face tracking loop
+    if(!faceLooping){faceLooping=true;faceLoop();}
+    runCountdown();
+  }catch(err){
+    setErr(err.message);
+    document.getElementById('syslbl').textContent='ERROR';
+    document.getElementById('initBtn').disabled=false;
+  }
+}
+
+function faceLoop(){
+  requestAnimationFrame(faceLoop);
+  if(faceLandmarker&&videoEl&&videoEl.readyState>=2){
+    try{
+      var r=faceLandmarker.detectForVideo(videoEl,performance.now());
+      if(r&&r.faceLandmarks&&r.faceLandmarks[0]){
+        var nose=r.faceLandmarks[0][1];
+        rawX=(0.5-nose.x)*12;
+        rawY=(nose.y-0.5)*9;
+      }
+    }catch(e){}
+  }
+}
+
+function runCountdown(){
+  var el=document.getElementById('countdown');
+  el.style.display='block';
+  var c=5;el.innerText=c;
+  var t=setInterval(function(){
+    c--;el.innerText=c;
+    if(c<=0){
+      clearInterval(t);
+      el.style.display='none';
+      offX=rawX;offY=rawY;
+      collisionEnabled=true; // NOW safe to trigger notes
+    }
+  },1000);
+}
+
+function setErr(msg){
+  var e=document.getElementById('errbox');
+  e.textContent=msg;e.style.display=msg?'inline':'none';
+}
+
+// ══════════════════════════════════════════
+//  MIDI — proven engine (ported from adaptive-breath-switch)
+// ══════════════════════════════════════════
+var midiAccess=null,midiOut=null,midiTxCount=0,_lastRealPortId=null,_pipTimer=null;
+
+// Automatically request MIDI on load — no button press required
+function setupMidi(){
+  if(!navigator.requestMIDIAccess){
+    logMM('ERR','Web MIDI not supported in this browser');
+    var b=document.getElementById('midibadge');
+    b.textContent='✗ Not supported';b.className='mbadge err';
+    return;
+  }
+  navigator.requestMIDIAccess({sysex:false}).then(function(acc){
+    midiAccess=acc;
+    var b=document.getElementById('midibadge');
+    b.textContent='✓ MIDI ready';b.className='mbadge ok';
+    document.getElementById('mididot').classList.add('midion');
+    logMM('SYS','MIDI access granted');
+    scanMidiPorts(); // selectMidiPort inside here will call .open()
+    acc.onstatechange=function(e){
+      logMM('SYS','Device '+e.port.state+': '+e.port.name);
+      scanMidiPorts();
+    };
+  }).catch(function(e){
+    var b=document.getElementById('midibadge');
+    b.textContent='✗ '+e.message;b.className='mbadge err';
+    logMM('ERR','MIDI denied: '+e.message);
+  });
+}
+
+// Also keep the manual button working
+function requestMidi(){ setupMidi(); }
+
+function scanMidiPorts(){
+  if(!midiAccess)return;
+  var s=document.getElementById('midiPort');
+  var prev=s.value;
+  s.innerHTML='<option value="">— none —</option>';
+  var outputs=[];
+  midiAccess.outputs.forEach(function(p){ outputs.push(p); });
+  if(!outputs.length){
+    logMM('SYS','No MIDI output ports found');
+    return;
+  }
+  outputs.forEach(function(p){
+    var o=document.createElement('option');
+    o.value=p.id; o.text=p.name+' ['+p.state+']';
+    s.appendChild(o);
+  });
+  // Smart auto-select: prefer loopMIDI, then previous port, then first available
+  var loopMidi=outputs.find(function(o){return o.name.toLowerCase().includes('loopmidi');});
+  var prevOk=outputs.find(function(o){return o.id===prev;});
+  var firstOk=outputs[0];
+  var autoId=prevOk?prevOk.id:loopMidi?loopMidi.id:firstOk?firstOk.id:'';
+  s.value=autoId;
+  selectMidiPort(autoId);
+}
+
+function selectMidiPort(id){
+  if(!midiAccess)return;
+  midiOut=id?midiAccess.outputs.get(id)||null:null;
+  var dot=document.getElementById('mididot');
+  if(midiOut){
+    _lastRealPortId=id;
+    dot.classList.add('midion');
+    document.getElementById('mm-port').textContent=midiOut.name.slice(0,22);
+    logMM('SYS','Port: "'+midiOut.name+'"');
+    var b=document.getElementById('midibadge');
+    b.textContent='✓ '+midiOut.name.slice(0,20);b.className='mbadge ok';
+    // Open the port and wait for it — this ensures first send works immediately
+    midiOut.open().then(function(){
+      logMM('SYS','Port open — ready');
+    }).catch(function(e){
+      logMM('ERR','Port open failed: '+e.message);
+    });
+  } else {
+    dot.classList.remove('midion');
+    document.getElementById('mm-port').textContent='No port';
+  }
+}
+
+// Core send function with error recovery
+function rawMidiSend(bytes, label){
+  if(!midiOut){ logMM('ERR','No port — select a MIDI port first'); return false; }
+  try{
+    midiOut.send(bytes);
+    midiTxCount++;
+    document.getElementById('mm-cnt').textContent=midiTxCount;
+    logMM(label.startsWith('NOTE ON')?'ON':'OFF', label);
+    flashMMActivity(); flashTxDot();
+    return true;
+  }catch(e){
+    logMM('ERR',e.message);
+    // Auto-reconnect: re-grab the port by ID and re-open it
+    if(_lastRealPortId && midiAccess){
+      midiOut=midiAccess.outputs.get(_lastRealPortId)||null;
+      if(midiOut){
+        midiOut.open().then(function(){
+          try{ midiOut.send(bytes); flashMMActivity(); flashTxDot(); }catch(e2){}
+        }).catch(function(){});
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+// Note On — fires when wand/mouse/breath enters a pad in MIDI mode
+function sendMidiOn(i){
+  var ch=(parseInt(document.getElementById('midiCh').value)-1)&0xF;
+  var midi=getNoteMidi(i);
+  var vel=Math.round(parseFloat(document.getElementById('velCtrl').value)*127);
+  rawMidiSend([0x90|ch, midi, Math.max(1,Math.min(127,vel))],
+    'NOTE ON '+getNN(i)+' vel='+vel+' ch='+(ch+1));
+}
+
+// Note Off — fires when wand/mouse/breath leaves a pad in MIDI mode
+function sendMidiOff(i){
+  var ch=(parseInt(document.getElementById('midiCh').value)-1)&0xF;
+  var midi=getNoteMidi(i);
+  rawMidiSend([0x80|ch, midi, 0], 'NOTE OFF '+getNN(i)+' ch='+(ch+1));
+}
+
+// Panic — all notes off on all channels
+function panicAllNotes(){
+  if(!midiOut){ logMM('ERR','No port for panic'); return; }
+  for(var ch=0;ch<16;ch++){
+    try{ midiOut.send([0xB0|ch,123,0]); }catch(e){}
+    for(var n=0;n<128;n++){ try{ midiOut.send([0x80|ch,n,0]); }catch(e){} }
+  }
+  // Release all visual state
+  Object.keys(touching).forEach(function(k){touching[k]=false;});
+  Object.keys(noteActive).forEach(function(k){noteActive[k]=false;});
+  logMM('SYS','PANIC — all notes off');
+}
+
+// ── MIDI Monitor ──
+var mmLog=[];
+function logMM(type,msg){
+  var now=new Date();
+  var ts=now.getHours().toString().padStart(2,'0')+':'
+        +now.getMinutes().toString().padStart(2,'0')+':'
+        +now.getSeconds().toString().padStart(2,'0');
+  mmLog.push({ts:ts,type:type,msg:msg});
+  if(mmLog.length>60)mmLog.shift();
+  renderMM();
+}
+function renderMM(){
+  var log=document.getElementById('mm-log');
+  log.innerHTML='';
+  mmLog.slice().reverse().slice(0,30).forEach(function(l){
+    var d=document.createElement('div');d.className='mml';
+    var klass=l.type==='ON'?'on':l.type==='OFF'?'off':'sys';
+    d.innerHTML='<span class="mml-t">'+l.ts+'</span>'
+               +'<span class="mml-k '+klass+'">'+l.type+'</span>'
+               +'<span class="mml-n">'+l.msg+'</span>';
+    log.appendChild(d);
+  });
+}
+
+// Build plain-text version of the full log for copy/share
+function buildMidiLogText(){
+  if(!mmLog.length) return '';
+  var header='Jamboxx Adaptive Music Controller — MIDI Log\n';
+  header+='Port: '+(document.getElementById('mm-port').textContent||'none')+'\n';
+  header+='Total TX: '+midiTxCount+'\n';
+  header+='Exported: '+new Date().toLocaleString()+'\n';
+  header+='─────────────────────────────────\n';
+  var lines=mmLog.map(function(l){
+    return '['+l.ts+'] '+l.type.padEnd(4)+' '+l.msg;
+  }).join('\n');
+  return header+lines;
+}
+
+// Fallback copy for browsers without clipboard API
+function fallbackCopy(text,btn){
+  var ta=document.createElement('textarea');
+  ta.value=text;
+  ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{
+    document.execCommand('copy');
+    btn.textContent='✓ COPIED';btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='COPY';btn.classList.remove('copied');},2000);
+  }catch(e){
+    btn.textContent='ERR';
+    setTimeout(function(){btn.textContent='COPY';},1500);
+  }
+  document.body.removeChild(ta);
+}
+var mmFlashTO=null;
+function flashMMActivity(){
+  var a=document.getElementById('mm-act');
+  a.classList.add('flash');
+  clearTimeout(mmFlashTO);
+  mmFlashTO=setTimeout(function(){a.classList.remove('flash');},110);
+}
+var txDotTO=null;
+function flashTxDot(){
+  var d=document.getElementById('miditxdot');
+  d.classList.add('miditx');
+  clearTimeout(txDotTO);
+  txDotTO=setTimeout(function(){d.classList.remove('miditx');},150);
+}
+
+// ══════════════════════════════════════════
+//  ADAPTIVE BREATH SWITCH ENGINE
+//  Mic → lowpass filter → amplitude detect → noteOn/noteOff
+//  Head swivel (rawX) selects which arc pad to trigger
+// ══════════════════════════════════════════
+var breathAudioCtx=null, breathRawAn=null, breathFiltAn=null;
+var breathFilt=null, breathSrc=null, breathStream=null;
+var breathRunning=false, breathNoteOn=false, breathHoldTimer=null;
+var breathLevel=0, breathRafId=null;
+// The currently selected pad index from head swivel
+var breathSelectedPad=0;
+
+function getBreathGain(){ return +document.getElementById('breathGain').value; }
+function getBreathThresh(){ return +document.getElementById('breathThresh').value; }
+function getBreathHold(){ return +document.getElementById('breathHold').value; }
+
+function setBreathStatus(msg, color){
+  var el=document.getElementById('breath-status');
+  el.textContent=msg;
+  el.style.color=color||'var(--dim)';
+  el.style.borderColor=color||'var(--border)';
+}
+
+async function startBreathEngine(){
+  try{
+    breathAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(breathAudioCtx.state==='suspended') await breathAudioCtx.resume();
+    breathStream=await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}
+    });
+    breathSrc=breathAudioCtx.createMediaStreamSource(breathStream);
+    // Raw analyser for waveform display
+    breathRawAn=breathAudioCtx.createAnalyser(); breathRawAn.fftSize=512;
+    breathSrc.connect(breathRawAn);
+    // Lowpass filter to isolate breath (slow air movement)
+    breathFilt=breathAudioCtx.createBiquadFilter();
+    breathFilt.type='lowpass'; breathFilt.frequency.value=30;
+    breathFiltAn=breathAudioCtx.createAnalyser(); breathFiltAn.fftSize=512;
+    breathSrc.connect(breathFilt); breathFilt.connect(breathFiltAn);
+    breathRunning=true;
+    document.getElementById('breathEngineBtn').textContent='⬛ Stop Engine';
+    document.getElementById('breathEngineBtn').style.borderColor='var(--mag)';
+    document.getElementById('breathEngineBtn').style.color='var(--mag)';
+    setBreathStatus('LISTENING…', 'var(--grn)');
+    logMM('SYS','Breath engine started');
+    breathLoop();
+  }catch(e){
+    setBreathStatus('MIC ERROR', 'var(--mag)');
+    logMM('ERR','Breath mic: '+e.message);
+  }
+}
+
+function stopBreathEngine(){
+  breathRunning=false;
+  if(breathRafId){cancelAnimationFrame(breathRafId);breathRafId=null;}
+  if(breathNoteOn){ breathSendOff(); breathNoteOn=false; }
+  if(breathHoldTimer){clearTimeout(breathHoldTimer);breathHoldTimer=null;}
+  if(breathStream) breathStream.getTracks().forEach(function(t){t.stop();});
+  if(breathAudioCtx) breathAudioCtx.close();
+  breathLevel=0;
+  document.getElementById('breathEngineBtn').textContent='▶ Start Mic Engine';
+  document.getElementById('breathEngineBtn').style.borderColor='var(--grn)';
+  document.getElementById('breathEngineBtn').style.color='var(--grn)';
+  setBreathStatus('OFFLINE', 'var(--dim)');
+  var fill=document.getElementById('breath-fill');
+  if(fill){fill.style.width='0%';fill.style.background='#1a3028';}
+  logMM('SYS','Breath engine stopped');
+}
+
+function breathLoop(){
+  breathRafId=requestAnimationFrame(breathLoop);
+  if(!breathRunning) return;
+
+  // Draw raw waveform
+  var rc=document.getElementById('breath-raw-canvas');
+  if(rc && breathRawAn){
+    var rd=new Uint8Array(breathRawAn.frequencyBinCount);
+    breathRawAn.getByteTimeDomainData(rd);
+    rc.width=rc.offsetWidth||278;
+    var rctx=rc.getContext('2d');
+    rctx.fillStyle='#000'; rctx.fillRect(0,0,rc.width,rc.height);
+    rctx.strokeStyle='#1a8050'; rctx.lineWidth=1.5; rctx.beginPath();
+    for(var i=0;i<rd.length;i++){
+      var x=i*(rc.width/rd.length), y=(rd[i]/255)*rc.height;
+      i===0?rctx.moveTo(x,y):rctx.lineTo(x,y);
+    }
+    rctx.stroke();
+  }
+
+  // Filtered breath amplitude
+  if(breathFiltAn){
+    var fd=new Uint8Array(breathFiltAn.frequencyBinCount);
+    breathFiltAn.getByteTimeDomainData(fd);
+    var peak=0;
+    for(var j=0;j<fd.length;j++){var p=Math.abs(fd[j]-128);if(p>peak)peak=p;}
+    var gain=getBreathGain();
+    var raw=Math.min(100,peak*(gain/5));
+    breathLevel=breathLevel*0.3+raw*0.7; // fast response smoothing
+  }
+
+  var pct=Math.min(100,breathLevel);
+  var thresh=getBreathThresh();
+
+  // Update meter
+  var fill=document.getElementById('breath-fill');
+  var num=document.getElementById('breath-num');
+  var tline=document.getElementById('breath-thresh-line');
+  if(fill){
+    fill.style.width=pct+'%';
+    fill.style.background=pct>thresh?'var(--grn)':pct>thresh*0.7?'#ffaa00':'#1a3028';
+  }
+  if(num) num.textContent=Math.round(pct);
+  if(tline) tline.style.left=thresh+'%';
+
+  // Select pad by head swivel — map rawX range to note arc
+  // rawX goes roughly -4 to +4 from center
+  // Map to 0..noteCount-1
+  var n=notePads.length;
+  if(n>0 && sysActive){
+    var swivel=rawX-offX; // head angle relative to center
+    var halfSpread=(parseFloat(document.getElementById('arcS').value)||88)*0.5;
+    // swivel in degrees ≈ swivel * 8 (empirical mapping)
+    var norm=(swivel*8+halfSpread)/(halfSpread*2);
+    norm=Math.max(0,Math.min(1,norm));
+    var newPad=Math.round(norm*(n-1));
+    if(newPad!==breathSelectedPad){
+      breathSelectedPad=newPad;
+      // Highlight selected pad visually
+      if(notePads[breathSelectedPad]){
+        notePads.forEach(function(pd,pi){
+          pd.ring.material.opacity = pi===breathSelectedPad ? 1.0 : 0.85;
+        });
+      }
+    }
+  }
+
+  // Gate logic — note on/off with hold-off timer
+  var hold=getBreathHold();
+  if(pct>thresh){
+    if(!breathNoteOn){
+      breathNoteOn=true;
+      breathSendOn();
+    }
+    if(breathHoldTimer){clearTimeout(breathHoldTimer);breathHoldTimer=null;}
+  } else if(breathNoteOn && !breathHoldTimer){
+    breathHoldTimer=setTimeout(function(){
+      breathNoteOn=false;
+      breathSendOff();
+      breathHoldTimer=null;
+      setBreathStatus('LISTENING…','var(--grn)');
+    }, hold);
+  }
+}
+
+function breathSendOn(){
+  var i=breathSelectedPad;
+  setBreathStatus('● BREATH ON — '+getNN(i), 'var(--grn)');
+  if(outputMode==='midi'){
+    sendMidiOn(i);
+  } else {
+    // Trigger audio note
+    if(!audioBootstrapped){
+      preinitTone().then(function(){ if(breathNoteOn) _playNote(i); });
+    } else {
+      _playNote(i);
+    }
+  }
+  triggerHitVisual(i, true);
+  noteActive[i]=true;
+}
+
+function breathSendOff(){
+  var i=breathSelectedPad;
+  if(outputMode==='midi'){
+    sendMidiOff(i);
+  } else {
+    stopNoteAudio(i);
+  }
+  triggerHitVisual(i, false);
+  noteActive[i]=false;
+}
+
+// ══════════════════════════════════════════
+//  WIRE UP ALL CONTROLS
+// ══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',function(){
+  initThree();
+  setupMidi(); // auto-request MIDI on load
+
+  // ── SIDEBAR: wire all .sh headers to togS ──
+  document.querySelectorAll('.sh').forEach(function(head){
+    head.addEventListener('click',function(){
+      var section=head.parentElement;
+      var body=section.querySelector('.sbody');
+      var arrow=head.querySelector('.sar');
+      if(!body||!arrow) return;
+      var isClosed=body.classList.toggle('closed');
+      arrow.textContent=isClosed?'▶':'▼';
+      arrow.style.color=isClosed?'':'var(--yel)';
+    });
+  });
+
+  // ── Boot audio on first user gesture ──
+  // Uses 'click' on document — fires after Tone.js is loaded (it's in <head>)
+  function firstGestureBoot(){
+    if(typeof Tone==='undefined') return; // safety
+    if(!audioBootstrapped && !toneInitPromise && outputMode==='sound'){
+      preinitTone();
+    }
+    document.removeEventListener('click', firstGestureBoot);
+    document.removeEventListener('keydown', firstGestureBoot);
+  }
+  document.addEventListener('click', firstGestureBoot);
+  document.addEventListener('keydown', firstGestureBoot);
+
+  document.getElementById('btn-sound').addEventListener('click',function(){ setMode('sound'); });
+  document.getElementById('btn-midi').addEventListener('click',function(){
+    setMode('midi');
+    // Auto-initialize MIDI if not already done
+    if(!midiAccess) setupMidi();
+  });
+
+  // ── Auto-request MIDI on page load so port is ready without manual button press ──
+  setupMidi();
+
+  document.getElementById('initBtn').addEventListener('click',startSystem);
+  document.getElementById('resetBtn').addEventListener('click',function(){location.reload();});
+  document.getElementById('panicBtn').addEventListener('click',panicAllNotes);
+  document.getElementById('calBtn').addEventListener('click',function(){offX=rawX;offY=rawY;});
+  document.getElementById('midiReqBtn').addEventListener('click',requestMidi);
+
+  // Breath switch
+  document.getElementById('breathEngineBtn').addEventListener('click',function(){
+    if(!breathRunning) startBreathEngine(); else stopBreathEngine();
+  });
+  document.getElementById('breathGain').addEventListener('input',function(){
+    document.getElementById('breathGainV').textContent=this.value+'x';
+  });
+  document.getElementById('breathThresh').addEventListener('input',function(){
+    document.getElementById('breathThreshV').textContent=this.value;
+  });
+  document.getElementById('breathHold').addEventListener('input',function(){
+    document.getElementById('breathHoldV').textContent=this.value;
+  });
+
+  // MIDI test — send middle C and release after 500ms
+  document.getElementById('midiTestBtn').addEventListener('click',function(){
+    if(!midiOut){scanMidiPorts();setTimeout(function(){if(midiOut)testMidiNote();},400);return;}
+    testMidiNote();
+  });
+
+  function testMidiNote(){
+    var ch=(parseInt(document.getElementById('midiCh').value)-1)&0xF;
+    var ok=rawMidiSend([0x90|ch,60,100],'NOTE ON C4 [TEST] ch='+(ch+1));
+    if(ok){
+      setTimeout(function(){rawMidiSend([0x80|ch,60,0],'NOTE OFF C4 [TEST]');},500);
+    }
+  }
+
+  document.getElementById('synthType').addEventListener('change',function(){
+    if(audioBootstrapped){ ensureToneGraph(); rebuildSynth(); }
+    updateScaleInfo(); buildArc();
+  });
+
+  document.getElementById('volCtrl').addEventListener('input',function(){
+    document.getElementById('volVal').textContent=this.value+'dB';
+    if(audioBootstrapped){ ensureToneGraph(); masterVol.volume.value=parseFloat(this.value); }
+  });
+  document.getElementById('revCtrl').addEventListener('input',function(){
+    document.getElementById('revVal').textContent=Math.round(this.value*100)+'%';
+    if(audioBootstrapped){ ensureToneGraph(); revFX.wet.value=parseFloat(this.value); }
+  });
+  document.getElementById('durCtrl').addEventListener('input',function(){
+    document.getElementById('durVal').textContent=parseFloat(this.value).toFixed(1)+'s';
+  });
+  document.getElementById('velCtrl').addEventListener('input',function(){
+    document.getElementById('velVal').textContent=Math.round(this.value*100)+'%';
+  });
+  document.getElementById('arcR').addEventListener('input',function(){
+    document.getElementById('arcRv').textContent=this.value;buildArc();
+  });
+  document.getElementById('arcS').addEventListener('input',function(){
+    document.getElementById('arcSv').textContent=this.value+'°';buildArc();
+  });
+  document.getElementById('midiCh').addEventListener('input',function(){
+    document.getElementById('midiChv').textContent=this.value;
+  });
+  document.getElementById('midiPort').addEventListener('change',function(){
+    selectMidiPort(this.value);
+  });
+  document.getElementById('scaleSelect').addEventListener('change',function(){updateScaleInfo();buildArc();});
+  document.getElementById('rootNote').addEventListener('change',function(){updateScaleInfo();buildArc();});
+  document.getElementById('octSel').addEventListener('change',function(){updateScaleInfo();buildArc();});
+
+  document.getElementById('upzone').addEventListener('click',function(){
+    document.getElementById('wavupload').click();
+  });
+  document.getElementById('wavupload').addEventListener('change',function(){
+    var f=this.files[0];if(!f)return;
+    Tone.start().then(function(){
+      toneReady=true;ensureToneGraph();
+      var url=URL.createObjectURL(f);
+      try{if(customPlayer)customPlayer.dispose();}catch(e){}
+      customPlayer=new Tone.Player(url).connect(revFX);
+      document.getElementById('synthType').value='custom';
+      document.getElementById('upzone').textContent='✓ '+f.name;
+      document.getElementById('upzone').classList.add('loaded');
+      document.getElementById('wavname').textContent=f.name;
+      document.getElementById('wavname').style.display='block';
+    });
+  });
+
+  // ── MIDI Monitor buttons ──
+  document.getElementById('mm-copy-btn').addEventListener('click',function(){
+    var btn=this;
+    var text=buildMidiLogText();
+    if(!text){btn.textContent='EMPTY';setTimeout(function(){btn.textContent='COPY';},1200);return;}
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        btn.textContent='✓ COPIED';btn.classList.add('copied');
+        setTimeout(function(){btn.textContent='COPY';btn.classList.remove('copied');},2000);
+      }).catch(function(){fallbackCopy(text,btn);});
+    } else {
+      fallbackCopy(text,btn);
+    }
+  });
+
+  document.getElementById('mm-share-btn').addEventListener('click',function(){
+    var text=buildMidiLogText();
+    if(!text){alert('No MIDI log data to share yet.');return;}
+    var subject=encodeURIComponent('Jamboxx MIDI Monitor Log');
+    var body=encodeURIComponent('Jamboxx Adaptive Music Controller — MIDI Log\n\n'+text);
+    var mailto='mailto:?subject='+subject+'&body='+body;
+    // Try Web Share API first (mobile), fall back to mailto
+    if(navigator.share){
+      navigator.share({
+        title:'Jamboxx MIDI Log',
+        text:text
+      }).catch(function(){window.location.href=mailto;});
+    } else {
+      window.location.href=mailto;
+    }
+  });
+
+  document.getElementById('mm-clear-btn').addEventListener('click',function(){
+    mmLog=[];
+    midiTxCount=0;
+    document.getElementById('mm-cnt').textContent='0';
+    renderMM();
+  });
+  var presets=[];
+
+  function gatherPreset(name){
+    return {
+      name:name||'Preset '+(presets.length+1),
+      ts:new Date().toISOString(),
+      scaleSelect:document.getElementById('scaleSelect').value,
+      rootNote:document.getElementById('rootNote').value,
+      octSel:document.getElementById('octSel').value,
+      synthType:document.getElementById('synthType').value,
+      volCtrl:document.getElementById('volCtrl').value,
+      revCtrl:document.getElementById('revCtrl').value,
+      durCtrl:document.getElementById('durCtrl').value,
+      velCtrl:document.getElementById('velCtrl').value,
+      arcR:document.getElementById('arcR').value,
+      arcS:document.getElementById('arcS').value,
+      midiCh:document.getElementById('midiCh').value,
+      outputMode:outputMode
+    };
+  }
+
+  function applyPreset(p){
+    var setVal=function(id,val){var el=document.getElementById(id);if(el)el.value=val;};
+    var setChk=function(id,val){var el=document.getElementById(id);if(el)el.checked=val;};
+    setVal('scaleSelect',p.scaleSelect);setVal('rootNote',p.rootNote);setVal('octSel',p.octSel);
+    setVal('synthType',p.synthType);setVal('volCtrl',p.volCtrl);setVal('revCtrl',p.revCtrl);
+    setVal('durCtrl',p.durCtrl);setVal('velCtrl',p.velCtrl);
+    setVal('arcR',p.arcR);setVal('arcS',p.arcS);setVal('midiCh',p.midiCh);
+    if(p.outputMode) setMode(p.outputMode);
+    // Refresh display values
+    document.getElementById('volVal').textContent=p.volCtrl+'dB';
+    document.getElementById('revVal').textContent=Math.round(p.revCtrl*100)+'%';
+    document.getElementById('durVal').textContent=parseFloat(p.durCtrl).toFixed(1)+'s';
+    document.getElementById('velVal').textContent=Math.round(p.velCtrl*100)+'%';
+    document.getElementById('arcRv').textContent=p.arcR;
+    document.getElementById('arcSv').textContent=p.arcS+'°';
+    document.getElementById('midiChv').textContent=p.midiCh;
+    if(masterVol) masterVol.volume.value=parseFloat(p.volCtrl);
+    if(revFX) revFX.wet.value=parseFloat(p.revCtrl);
+    updateScaleInfo(); buildArc();
+    if(audioBootstrapped){ ensureToneGraph(); rebuildSynth(); }
+  }
+
+  function renderPresetList(){
+    var list=document.getElementById('pp-list');
+    list.innerHTML='';
+    if(presets.length===0){list.innerHTML='<div style="font-size:9px;color:var(--dim);padding:4px 0;">No presets saved</div>';return;}
+    presets.forEach(function(p,idx){
+      var row=document.createElement('div');row.className='pp-item';
+      row.innerHTML='<span class="pp-item-name">'+p.name+'</span><span class="pp-item-del" title="Delete">✕</span>';
+      row.querySelector('.pp-item-name').addEventListener('click',function(){applyPreset(p);});
+      row.querySelector('.pp-item-del').addEventListener('click',function(){presets.splice(idx,1);renderPresetList();});
+      list.appendChild(row);
+    });
+  }
+  renderPresetList();
+
+  document.getElementById('pp-save-btn').addEventListener('click',function(){
+    var nm=document.getElementById('pp-name').value.trim()||'Preset '+(presets.length+1);
+    presets.push(gatherPreset(nm));
+    document.getElementById('pp-name').value='';
+    renderPresetList();
+  });
+
+  document.getElementById('pp-dl-btn').addEventListener('click',function(){
+    if(presets.length===0){alert('No presets to download. Save at least one preset first.');return;}
+    var data={
+      app:'Jamboxx Adaptive Music Controller',
+      exported:new Date().toISOString(),
+      presets:presets
+    };
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='jamboxx-presets-'+Date.now()+'.json';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},200);
+  });
+  // ── Sound Engine Test Note ──
+  document.getElementById('soundTestBtn').addEventListener('click', function(){
+    var st = document.getElementById('soundTestStatus');
+    Tone.start().then(function(){
+      toneReady = true;
+      ensureToneGraph();
+      if(!mainSynth) rebuildSynth();
+      st.style.display = 'block';
+      try {
+        var vel = parseFloat(document.getElementById('velCtrl').value) || 0.8;
+        var dur = parseFloat(document.getElementById('durCtrl').value) || 0.6;
+        mainSynth.triggerAttackRelease('C4', dur, Tone.now(), vel);
+        st.textContent = '✓ Playing C4 — Sound OK';
+        st.style.color = 'var(--grn)';
+        st.style.borderColor = 'var(--grn)';
+      } catch(e) {
+        st.textContent = '✗ Error: ' + (e.message || 'Could not play note');
+        st.style.color = 'var(--mag)';
+        st.style.borderColor = 'var(--mag)';
+      }
+      setTimeout(function(){ st.style.display = 'none'; }, 3000);
+    }).catch(function(e){
+      st.style.display = 'block';
+      st.textContent = '✗ Audio not ready — click Activate first';
+      st.style.color = 'var(--yel)';
+      st.style.borderColor = 'var(--yel)';
+      setTimeout(function(){ st.style.display = 'none'; }, 3500);
+    });
+  });
+
+});
+</script>
+
+</body>
+</html>
